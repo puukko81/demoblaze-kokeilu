@@ -1,0 +1,54 @@
+variables:
+- name: BuildParameters.workingDirectory
+  value: ''
+- name: BuildParameters.workingDir
+  value: ''
+jobs:
+- job: Job_1
+  displayName: RF-testit, Browser, Demoblaze
+  pool:
+    vmImage: windows-latest
+  strategy:
+    matrix:
+      Python37:
+        python.version: '3.7'
+    maxParallel: 1
+  steps:
+  - checkout: self
+    fetchDepth: 1
+  
+  - task: NodeTool@0
+    displayName: Use Node 16.x
+    inputs:
+      versionSpec: 16.x
+  
+  - task: UsePythonVersion@0
+    inputs: 
+      versionSpec: '$(python.version)'
+      architecture: 'x64'
+  
+  - script: pip install robotframework robotframework-browser PyYAML
+    displayName: 'Install RF and dependencies'
+  
+  - script: rfbrowser init
+    displayName: 'Initialize the Browser Library'
+  
+  - powershell: |
+     Write-Host "Robot Framework tests"
+     echo $(Build.SourcesDirectory)
+     robot -x 'outputxunit.xml' '$(Build.SourcesDirectory)\tests\.'
+    failOnStderr: true
+    displayName: 'Run Robot Framework Tests'
+    continueOnError: true
+  
+  - task: PublishTestResults@2
+    displayName: 'Publish Test Results'
+    continueOnError: true
+    inputs:
+      testResultsFiles: outputxunit.xml
+  - task: PublishPipelineArtifact@1
+    displayName: 'Save RF log.html'
+    inputs:
+      targetPath: '$(Build.SourcesDirectory)\log.html'
+      artifact: 'RF-logs'
+      publishLocation: 'pipeline'
